@@ -11,16 +11,34 @@ import java.util.List;
 
 import org.adligo.i.log.client.Log;
 import org.adligo.i.log.client.LogFactory;
+import org.adligo.i.pool.I_Pool;
+import org.adligo.i.pool.I_PooledConnection;
 import org.adligo.i.pool.PooledConnection;
 
 public class DiskConnection extends PooledConnection {
+	public static final String NO_MORE_BYTES_ARE_AVAILABLE = "No more bytes are available.";
+	public static final String A_DISK_CONNECTION_MAY_ONLY_STREAM_ONE_FILE_AT_A_TIME = "A DiskConnection may only stream one file at a time!";
 	private static final Log log = LogFactory.getLog(DiskConnection.class);
+	private InputStream stream;
+	private Byte nextByte;
+	private int streamBytesBetweenImActive;
+	private int bytesStreamed;
 	
-	DiskConnection() {
-		
+	DiskConnection(I_DiskConnectionFactoryConfig<? extends DiskConnection> p) {
+		streamBytesBetweenImActive = p.getStreamBytesBetweenActive();
 	}
 	
+	 
+	/**
+	 * use for small files,
+	 * for larger files you may want to consider using a
+	 * stream read
+	 * @param fileName
+	 * @param proc
+	 * @throws FileNotFoundException
+	 */
 	public void readFile(String fileName, I_InputProcessor proc) throws FileNotFoundException {
+		super.markActive();
 		InputStream in = null;
 		try {
 			File file = new File(fileName);
@@ -41,6 +59,7 @@ public class DiskConnection extends PooledConnection {
 	}
 	
 	public boolean checkIfFileExists(String fileName) {
+		super.markActive();
 		File file = new File(fileName);
 
 		if (!file.isFile()) {
@@ -50,6 +69,7 @@ public class DiskConnection extends PooledConnection {
 	}
 	
 	public boolean checkIfDirectoryExists(String fileName) {
+		super.markActive();
 		File file = new File(fileName);
 		
 		if (!file.isDirectory()) {
@@ -59,11 +79,13 @@ public class DiskConnection extends PooledConnection {
 	}
 	
 	public boolean checkIfHidden(String fileName) {
+		super.markActive();
 		File file = new File(fileName);
 		return file.isHidden();
 	}
 	
 	public Long getFreeSpace(String fileName) {
+		super.markActive();
 		File file = new File(fileName);
 		if (!file.exists()) {
 			return null;
@@ -72,6 +94,7 @@ public class DiskConnection extends PooledConnection {
 	}
 	
 	public Long getUsableSpace(String fileName) {
+		super.markActive();
 		File file = new File(fileName);
 		if (!file.exists()) {
 			return null;
@@ -80,6 +103,7 @@ public class DiskConnection extends PooledConnection {
 	}
 	
 	public Long getModifiedTime(String fileName) {
+		super.markActive();
 		File file = new File(fileName);
 		if (!file.exists()) {
 			return null;
@@ -99,7 +123,7 @@ public class DiskConnection extends PooledConnection {
 
 	@Override
 	public void dispose() {
-		//do nothing
+		endStreamRead();
 	}
 	
 	/**
@@ -112,6 +136,7 @@ public class DiskConnection extends PooledConnection {
 	 * @return
 	 */
 	public List<DiskItem> listContents(String dir, int recurse) {
+		super.markActive();
 		List<DiskItem> toRet = new ArrayList<DiskItem>();
 		File file = new File(dir);
 		if (file.isDirectory()) {
@@ -140,6 +165,7 @@ public class DiskConnection extends PooledConnection {
 	 * @return
 	 */
 	public List<DiskItem> listContents(String dir, FileFilter filter, int recurse) {
+		super.markActive();
 		List<DiskItem> toRet = new ArrayList<DiskItem>();
 		File file = new File(dir);
 		if (file.isDirectory()) {
@@ -162,5 +188,76 @@ public class DiskConnection extends PooledConnection {
 			}
 		}
 		return toRet;
+	}
+
+
+
+	/**
+	 * @see I_PooledConnection#returnToPool()
+	 * this also closes the stream read if it was in process.
+	 */
+	@Override
+	public void returnToPool() {
+		endStreamRead();
+		super.returnToPool();
+	}
+
+	public void startStreamRead(String fileName) throws IOException {
+		if (stream != null) {
+			throw new IOException(A_DISK_CONNECTION_MAY_ONLY_STREAM_ONE_FILE_AT_A_TIME);
+		}
+		super.markActive();
+		try {
+			stream = new FileInputStream(fileName);
+		} catch (FileNotFoundException x) {
+			throw new IOException(x);
+		}
+	}
+	
+	public boolean hasMoreBytes() throws IOException {
+		if (nextByte != null) {
+			return true;
+		} else {
+			return assignNextByte();
+		}
+	}
+
+
+	private boolean assignNextByte() throws IOException {
+		int next = stream.read();
+		if (next != -1) {
+			bytesStreamed++;
+			if (bytesStreamed >= streamBytesBetweenImActive) {
+				bytesStreamed = 0;
+				super.markActive();
+			}
+			nextByte = (byte) next;
+			return true;
+		}
+		return false;
+	}
+
+	public byte nextByte() throws IOException {
+		if (nextByte == null) {
+			if (!assignNextByte()) {
+				throw new IOException(NO_MORE_BYTES_ARE_AVAILABLE);
+			}
+		}
+		Byte toRet = nextByte;
+		nextByte = null;
+		return toRet;
+	}
+	
+	public void endStreamRead() {
+		super.markActive();
+		if (stream != null) {
+			try {
+				stream.close();
+			} catch (IOException x) {
+				log.error(x.getMessage(), x);
+			}
+		}
+		stream = null;
+		nextByte = null;
 	}
 }
