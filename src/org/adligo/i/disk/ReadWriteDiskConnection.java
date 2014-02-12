@@ -5,8 +5,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
-import org.adligo.i.log.client.Log;
-import org.adligo.i.log.client.LogFactory;
+import org.adligo.i.log.shared.Log;
+import org.adligo.i.log.shared.LogFactory;
 
 public class ReadWriteDiskConnection  extends DiskConnection {
 	private static final Log log = LogFactory.getLog(ReadWriteDiskConnection.class);

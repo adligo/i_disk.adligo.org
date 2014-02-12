@@ -1,7 +1,7 @@
 package org.adligo.i.disk;
 
 import org.adligo.i.pool.PoolConfigurationMutant;
-import org.adligo.models.core.client.InvalidParameterException;
+import org.adligo.models.core.shared.InvalidParameterException;
 
 public class DiskConnectionFactoryConfig<T extends DiskConnection> extends PoolConfigurationMutant<T> 
 	implements I_DiskConnectionFactoryConfig<T> {

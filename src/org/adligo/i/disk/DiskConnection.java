@@ -9,8 +9,8 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.adligo.i.log.client.Log;
-import org.adligo.i.log.client.LogFactory;
+import org.adligo.i.log.shared.Log;
+import org.adligo.i.log.shared.LogFactory;
 import org.adligo.i.pool.I_Pool;
 import org.adligo.i.pool.I_PooledConnection;
 import org.adligo.i.pool.PooledConnection;
