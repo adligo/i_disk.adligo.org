@@ -1,5 +1,6 @@
-classes/
-bin/
-classes_e/
+/classes/
+/bin/
+/build/
+/classes_e/
 
 /i_disk.jar
